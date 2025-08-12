@@ -425,6 +425,19 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
   newState.completedMissions = [...newState.completedMissions, completedMission];
   newState.activeMissions = newState.activeMissions.filter(m => m.id !== action.missionId);
 
+  // Add terminal report entry for mission
+  newState.terminalLore = [
+    ...(newState.terminalLore || []),
+    {
+      id: `mission-${mission.id}-${Date.now()}`,
+      title: mission.type === 'combat' ? 'Combat Report' : 'Operation Report',
+      content: `Mission "${mission.title}" at ${mission.location} completed. ${mission.type === 'combat' ? 'Battle concluded.' : 'Operation finished.'}`,
+      timestamp: Date.now(),
+      unlockedBy: mission.type,
+      category: mission.type === 'combat' ? 'combat' : 'operations'
+    }
+  ];
+
   // Add combat cooldown for combat missions
   if (mission.type === 'combat' && mission.targetId) {
     newState.combatCooldowns = {
@@ -608,7 +621,8 @@ export const updateProductionReducer = (state: GameState): GameState => {
 
       // Heal all squad members and workers
       newState.squad = newState.squad.map(member => {
-        if (member.stats.health < member.stats.maxHealth) {
+        // Do not heal operatives while on missions to avoid HP popping during combat
+        if (member.status === 'available' && member.stats.health < member.stats.maxHealth) {
           return {
             ...member,
             stats: {
@@ -874,6 +888,51 @@ export const calculateOfflineProgressReducer = (state: GameState, action: any): 
       thirst: Math.max(0, member.stats.thirst - (offlineHours * 2))
     }
   }));
+
+  // Recover knocked out members based on offline time
+  const now = Date.now();
+  const offlineMs = offlineHours * 60 * 60 * 1000;
+  newState.squad = newState.squad.map(member => {
+    if ((member as any).knockedOutUntil && (member as any).knockedOutUntil <= now) {
+      return { ...member, status: 'available' as const, knockedOutUntil: undefined };
+    }
+    return member;
+  });
+
+  // Complete missions that finished while offline and add terminal entries
+  const completedIds: string[] = [];
+  newState.activeMissions.forEach(mission => {
+    const endTime = mission.startTime + mission.duration * 60000;
+    if (endTime <= now) {
+      completedIds.push(mission.id);
+      // Return squad
+      mission.assignedSquad.forEach(id => {
+        const m = newState.squad.find(s => s.id === id);
+        if (m) m.status = 'available';
+      });
+      // Push to completed
+      newState.completedMissions.push({ ...mission, completedAt: now, success: true });
+      // Add cooldown for combat targets
+      if (mission.type === 'combat' && mission.targetId) {
+        newState.combatCooldowns = { ...newState.combatCooldowns, [mission.targetId]: now + (10 * 60 * 1000) };
+      }
+      // Terminal entry
+      newState.terminalLore = [
+        ...(newState.terminalLore || []),
+        {
+          id: `offline-mission-${mission.id}-${now}`,
+          title: mission.type === 'combat' ? 'Combat Report (Offline)' : 'Operation Report (Offline)',
+          content: `Mission "${mission.title}" at ${mission.location} completed while you were offline. Rewards have been applied.`,
+          timestamp: now,
+          unlockedBy: mission.type,
+          category: mission.type === 'combat' ? 'combat' : 'operations'
+        }
+      ];
+    }
+  });
+  if (completedIds.length) {
+    newState.activeMissions = newState.activeMissions.filter(m => !completedIds.includes(m.id));
+  }
 
   return newState;
 };

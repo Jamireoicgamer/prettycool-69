@@ -8,6 +8,7 @@ import { normalizeWeaponFromItem } from '@/utils/combat/WeaponNormalizer';
 import { ConsumablePicker } from './ConsumablePicker';
 import { SquadPerkTree } from './SquadPerkTree';
 import { GAME_ITEMS } from '@/data/GameItems';
+import { CombatSynchronizer } from '@/utils/CombatSynchronizer';
 
 export const SquadManagement = () => {
   const { 
@@ -38,6 +39,24 @@ export const SquadManagement = () => {
   const [picker, setPicker] = useState<{ type: 'food' | 'water'; memberId: string } | null>(null);
   const [perkTreeFor, setPerkTreeFor] = useState<string | null>(null);
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
+
+  // Live combat HP overlay from CombatSynchronizer
+  const [liveHealths, setLiveHealths] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const sync = CombatSynchronizer.getInstance();
+    const id = setInterval(() => {
+      const map: Record<string, number> = {};
+      // Aggregate from all active combat missions
+      gameState.activeMissions
+        .filter(m => m.type === 'combat')
+        .forEach(m => {
+          const state = sync.getCombatState(m.id);
+          state?.combatants.forEach(c => { map[c.id] = c.health; });
+        });
+      setLiveHealths(map);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [gameState.activeMissions]);
 
   // Update current time every second for live countdown
   useEffect(() => {
@@ -513,13 +532,17 @@ export const SquadManagement = () => {
                     <Heart size={12} className="mr-1" />
                     Health
                   </span>
-                  <span className="text-red-400">{member.stats.health.toFixed(0)}/{member.stats.maxHealth}</span>
+                  {(() => { const hp = liveHealths[member.id] ?? member.stats.health; return (
+                    <span className="text-red-400">{Math.floor(hp)}/{member.stats.maxHealth}</span>
+                  ); })()}
                 </div>
                 <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                  <div 
-                    className="bg-gradient-to-r from-red-600 to-red-400 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${(member.stats.health / member.stats.maxHealth) * 100}%` }}
-                  />
+                  {(() => { const hp = liveHealths[member.id] ?? member.stats.health; return (
+                    <div 
+                      className="bg-gradient-to-r from-red-600 to-red-400 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${(hp / member.stats.maxHealth) * 100}%` }}
+                    />
+                  ); })()}
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2">
