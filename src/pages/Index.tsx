@@ -132,14 +132,14 @@ const GameContent = () => {
         onLoadStart={() => console.log('Video started loading')}
         onCanPlay={() => console.log('Video can play')}
       >
-        <source src="https://assets.fallout.tv/fallout-bg-video.mp4" type="video/mp4" />
+        <source src="https://images.pexels.com/videos/3045163/pexels-video-3045163.mp4" type="video/mp4" />
       </video>
       
       {/* Fallback background image if video fails */}
       <div 
         className="fixed top-0 left-0 w-full h-full z-0 opacity-30"
         style={{
-          backgroundImage: 'url("/lovable-uploads/8ee0e910-ff57-43a3-aa8e-968fc6da5e01.png")',
+          backgroundImage: 'url("https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg")',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}

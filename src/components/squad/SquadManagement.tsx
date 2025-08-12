@@ -695,6 +695,7 @@ export const SquadManagement = () => {
                       e.stopPropagation();
                       setShowInventory(member.id);
                     }}
+                    disabled={member.status === 'mission'}
                     className="text-xs bg-purple-600 hover:bg-purple-500 px-2 py-1 rounded text-white transition-all duration-300 transform hover:scale-110 flex items-center space-x-1 animate-scale-in"
                   >
                     <Package size={12} />
@@ -705,7 +706,7 @@ export const SquadManagement = () => {
                       e.stopPropagation();
                       setPicker({ type: 'food', memberId: member.id });
                     }}
-                    disabled={!gameState.inventory.find(item => (item.id === 'food' || item.id === 'canned-food') && item.quantity > 0)}
+                    disabled={member.status === 'mission' || !gameState.inventory.find(item => (item.id === 'food' || item.id === 'canned-food') && item.quantity > 0)}
                     className="text-xs bg-green-600 hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed px-2 py-1 rounded text-white transition-all duration-300 transform hover:scale-110 animate-scale-in"
                   >
                     Give Food
@@ -715,7 +716,7 @@ export const SquadManagement = () => {
                       e.stopPropagation();
                       setPicker({ type: 'water', memberId: member.id });
                     }}
-                    disabled={!gameState.inventory.find(item => (item.id === 'water' || item.id === 'purified-water' || item.id === 'nuka-cola') && item.quantity > 0)}
+                    disabled={member.status === 'mission' || !gameState.inventory.find(item => (item.id === 'water' || item.id === 'purified-water' || item.id === 'nuka-cola') && item.quantity > 0)}
                     className="text-xs bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed px-2 py-1 rounded text-white transition-all duration-300 transform hover:scale-110 animate-scale-in"
                   >
                     Give Water
@@ -725,7 +726,7 @@ export const SquadManagement = () => {
                       e.stopPropagation();
                       giveStimpak(member.id);
                     }}
-                    disabled={!hasStimpak}
+                    disabled={member.status === 'mission' || !hasStimpak}
                     className="text-xs bg-red-600 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed px-2 py-1 rounded text-white transition-all duration-300 transform hover:scale-110 flex items-center space-x-1 animate-scale-in"
                   >
                     <Plus size={12} />

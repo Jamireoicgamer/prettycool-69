@@ -63,10 +63,38 @@ export const createGameActions = (gameState: GameState, dispatch: any, addNotifi
   };
 
   const useConsumable = (itemId: string, targetId?: string) => {
+    // Prevent using consumables on squad members who are on missions
+    if (targetId) {
+      const member = gameState.squad.find(m => m.id === targetId);
+      if (member && member.status === 'mission') {
+        addNotification({
+          id: `consumable-mission-error-${Date.now()}`,
+          type: 'error',
+          title: 'Cannot Use Item',
+          message: `${member.name} is currently on a mission and cannot use items`,
+          priority: 'medium'
+        });
+        return;
+      }
+    }
+    
     dispatch({ type: 'USE_CONSUMABLE', itemId, targetId });
   };
 
   const useChem = (chemId: string, targetId: string) => {
+    // Prevent using chems on squad members who are on missions
+    const member = gameState.squad.find(m => m.id === targetId);
+    if (member && member.status === 'mission') {
+      addNotification({
+        id: `chem-mission-error-${Date.now()}`,
+        type: 'error',
+        title: 'Cannot Use Chem',
+        message: `${member.name} is currently on a mission and cannot use chems`,
+        priority: 'medium'
+      });
+      return;
+    }
+    
     dispatch({ type: 'USE_CONSUMABLE', itemId: chemId, targetId });
   };
 
@@ -239,10 +267,34 @@ export const createGameActions = (gameState: GameState, dispatch: any, addNotifi
   };
 
   const giveSquadMemberFood = (squadMemberId: string) => {
+    const member = gameState.squad.find(m => m.id === squadMemberId);
+    if (member && member.status === 'mission') {
+      addNotification({
+        id: `food-mission-error-${Date.now()}`,
+        type: 'error',
+        title: 'Cannot Give Food',
+        message: `${member.name} is currently on a mission`,
+        priority: 'medium'
+      });
+      return;
+    }
+    
     dispatch({ type: 'GIVE_SQUAD_FOOD', squadMemberId });
   };
 
   const giveSquadMemberWater = (squadMemberId: string) => {
+    const member = gameState.squad.find(m => m.id === squadMemberId);
+    if (member && member.status === 'mission') {
+      addNotification({
+        id: `water-mission-error-${Date.now()}`,
+        type: 'error',
+        title: 'Cannot Give Water',
+        message: `${member.name} is currently on a mission`,
+        priority: 'medium'
+      });
+      return;
+    }
+    
     dispatch({ type: 'GIVE_SQUAD_WATER', squadMemberId });
   };
 
