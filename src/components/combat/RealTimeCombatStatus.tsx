@@ -300,8 +300,7 @@ export const RealTimeCombatStatus: React.FC = () => {
         <span className="text-xs text-gray-400">{isOpen ? 'Hide' : 'Show'}</span>
       </h3>
 
-      {isOpen && (
-        <>
+        <div className="animate-enter animate-fade-in animate-scale-in origin-top">
           {/* Phase Title */}
           <div className="text-sm text-gray-300 mb-2">
             {missionPhase === 'travel' && `En Route: ${activeMission.title}`}
@@ -511,8 +510,7 @@ export const RealTimeCombatStatus: React.FC = () => {
               </div>
             )}
           </div>
-        </>
-      )}
+        </div>
     </div>
   );
 };
