@@ -135,21 +135,20 @@ export const RealTimeCombatStatus: React.FC = () => {
         }
 
         // Update health if damage was dealt to a named squad member
-        // Update health from all damage events in this batch
-        const damageEvents = newEvents.filter(e => e.damage && e.target);
-        if (damageEvents.length > 0) {
+        const latestDamage = [...newEvents].reverse().find(e => e.damage && e.target);
+        if (latestDamage && latestDamage.damage && latestDamage.target) {
           setSquadHealths(prev => {
-            const updated = { ...prev };
-            damageEvents.forEach(damageEvent => {
-              const squadMember = gameState.squad.find(m => m.name === damageEvent.target);
-              const playerHit = gameState.playerCharacter && gameState.playerCharacter.name === damageEvent.target;
-              const targetId = squadMember?.id || (playerHit ? gameState.playerCharacter!.id : null);
-              if (targetId && damageEvent.damage) {
-                const current = updated[targetId] ?? (squadMember ? squadMember.stats.health : 100);
-                updated[targetId] = Math.max(0, current - damageEvent.damage);
-              }
-            });
-            return updated;
+            const squadMember = gameState.squad.find(m => m.name === latestDamage.target);
+            const playerHit = gameState.playerCharacter && gameState.playerCharacter.name === latestDamage.target;
+            const targetId = squadMember?.id || (playerHit ? gameState.playerCharacter!.id : null);
+            if (targetId) {
+              const current = prev[targetId] ?? (squadMember ? squadMember.stats.health : 100);
+              return {
+                ...prev,
+                [targetId]: Math.max(0, current - latestDamage.damage!)
+              };
+            }
+            return prev;
           });
         }
       }

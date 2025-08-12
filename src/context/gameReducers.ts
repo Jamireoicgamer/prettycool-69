@@ -9,69 +9,6 @@ import { SQUAD_PERKS } from '@/data/SquadPerks';
 import { chooseEnemyPerks, chooseEnemyPerksForBalance } from '@/utils/PerkSystem';
 import { CombatSynchronizer } from '@/utils/CombatSynchronizer';
 
-// Helper function to generate enemy stats based on level
-const generateEnemyStats = (level: number) => {
-  const maxStatForLevel = Math.min(10, level + 1); // Level 1 = max 2, Level 2 = max 3, etc.
-  return {
-    combat: Math.floor(Math.random() * maxStatForLevel) + 1,
-    stealth: Math.floor(Math.random() * maxStatForLevel) + 1,
-    tech: Math.floor(Math.random() * maxStatForLevel) + 1,
-    charisma: Math.floor(Math.random() * maxStatForLevel) + 1,
-    intelligence: Math.floor(Math.random() * maxStatForLevel) + 1
-  };
-};
-
-// Helper function to select weapons based on difficulty
-const selectEnemyWeapon = (difficulty: number) => {
-  const weaponPool = GAME_ITEMS.filter(item => 
-    item.type === 'weapon' && 
-    (item.rarity === 'common' || item.rarity === 'uncommon')
-  );
-  
-  if (weaponPool.length === 0) return null;
-  
-  // Higher difficulty = better chance for uncommon weapons
-  const uncommonChance = Math.min(0.8, difficulty * 0.15);
-  const preferUncommon = Math.random() < uncommonChance;
-  
-  const filteredWeapons = preferUncommon 
-    ? weaponPool.filter(w => w.rarity === 'uncommon')
-    : weaponPool.filter(w => w.rarity === 'common');
-    
-  if (filteredWeapons.length === 0) {
-    return weaponPool[Math.floor(Math.random() * weaponPool.length)];
-  }
-  
-  return filteredWeapons[Math.floor(Math.random() * filteredWeapons.length)];
-};
-
-// Helper function to select armor based on difficulty
-const selectEnemyArmor = (difficulty: number) => {
-  const armorPool = GAME_ITEMS.filter(item => 
-    item.type === 'armor' && 
-    (item.rarity === 'common' || item.rarity === 'uncommon')
-  );
-  
-  if (armorPool.length === 0) return null;
-  
-  // Higher difficulty = better chance for armor
-  const armorChance = Math.min(0.7, difficulty * 0.12);
-  if (Math.random() > armorChance) return null;
-  
-  const uncommonChance = Math.min(0.6, difficulty * 0.1);
-  const preferUncommon = Math.random() < uncommonChance;
-  
-  const filteredArmor = preferUncommon 
-    ? armorPool.filter(a => a.rarity === 'uncommon')
-    : armorPool.filter(a => a.rarity === 'common');
-    
-  if (filteredArmor.length === 0) {
-    return armorPool[Math.floor(Math.random() * armorPool.length)];
-  }
-  
-  return filteredArmor[Math.floor(Math.random() * filteredArmor.length)];
-};
-
 export const manageFusionCoresReducer = (state: GameState, action: any): GameState => {
   switch (action.action) {
     case 'add':
@@ -293,68 +230,20 @@ export const startMissionReducer = (state: GameState, action: any): GameState =>
   const highestLevel = Math.max(
     ...availableMembers.map((id: string) => (state.squad.find(m => m.id === id)?.level || 1))
   );
-  
-  // Calculate average squad level for enemy scaling
-  const averageSquadLevel = Math.round(
-    availableMembers.reduce((sum: number, id: string) => {
-      const member = state.squad.find(m => m.id === id);
-      return sum + (member?.level || 1);
-    }, 0) / availableMembers.length
+  const highestPerkCount = Math.max(
+    0,
+    ...availableMembers.map((id: string) => (state.squad.find(m => m.id === id)?.perks?.length || 0))
   );
 
-  // Generate enemies with proper stats, equipment, and scaling
+  // Assign enemies without artificial buffs; clamp accuracy, set level and balanced perks
   const scaledEnemies = (missionData.enemies || []).map((enemy: any, idx: number) => {
-    // Generate core stats based on average squad level
-    const enemyStats = generateEnemyStats(averageSquadLevel);
-    
-    // Select equipment based on difficulty
-    const weapon = selectEnemyWeapon(missionData.difficulty || 1);
-    const armor = selectEnemyArmor(missionData.difficulty || 1);
-    
-    // Calculate number of enemies based on difficulty (more enemies = higher difficulty)
-    const enemyCountMultiplier = 1 + Math.floor((missionData.difficulty || 1) / 2);
-    
-    // Calculate perks based on difficulty (more perks at higher difficulty)
-    const perkCount = Math.max(0, Math.floor((missionData.difficulty || 1) / 2));
-    const enemyPerks = chooseEnemyPerksForBalance(averageSquadLevel, perkCount);
-    
-    // Base health from original enemy data
-    const baseHealth = enemy.health || 40;
-    
-    // Calculate weapon damage and accuracy from equipped weapon
-    let weaponDamage = enemy.damage || 8;
-    let weaponAccuracy = enemy.accuracy || 50;
-    let weaponFireRate = enemy.fireRate || 1;
-    
-    if (weapon && weapon.stats) {
-      weaponDamage = weapon.stats.damage || weaponDamage;
-      weaponAccuracy = weapon.stats.accuracy || weaponAccuracy;
-      weaponFireRate = weapon.stats.fireRate || weaponFireRate;
-    }
-    
-    // Calculate defense from armor
-    let armorDefense = 0;
-    if (armor && armor.stats) {
-      armorDefense = armor.stats.defense || 0;
-    }
-    
+    const acc = Math.min(95, Math.max(30, enemy.accuracy ?? 60));
+    const enemyPerks = chooseEnemyPerksForBalance(highestLevel, Math.max(0, highestPerkCount - 1));
     return {
       ...enemy,
-      level: averageSquadLevel,
-      stats: enemyStats,
-      health: baseHealth,
-      maxHealth: baseHealth,
-      damage: weaponDamage,
-      accuracy: Math.min(95, Math.max(30, weaponAccuracy)),
-      fireRate: weaponFireRate,
-      defense: armorDefense,
-      equipment: {
-        weapon: weapon?.id || null,
-        armor: armor?.id || null,
-        accessory: null
-      },
-      perks: enemyPerks,
-      intelligence: enemyStats.intelligence * 10 // Convert to 0-100 scale for AI
+      accuracy: acc,
+      level: highestLevel,
+      perks: enemyPerks
     };
   });
 
@@ -427,22 +316,13 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
       // Persist combat health results if available
       const finalHealth = results?.finalHealths?.[member.id];
       if (typeof finalHealth === 'number') {
-        const actualFinalHealth = Math.max(0, Math.floor(finalHealth));
-        
-        if (actualFinalHealth <= 0) {
-          // Member was knocked out - set status and health appropriately
+        updatedMember.stats = {
+          ...updatedMember.stats,
+          health: Math.max(0, Math.floor(finalHealth))
+        };
+        if (finalHealth <= 0) {
           updatedMember.status = 'knocked-out' as const;
           updatedMember.knockedOutUntil = Date.now() + (2 * 60 * 60 * 1000); // 2 hours
-          updatedMember.stats = {
-            ...updatedMember.stats,
-            health: 0 // Explicitly set to 0, not 100
-          };
-        } else {
-          // Member survived - update health but keep available status
-          updatedMember.stats = {
-            ...updatedMember.stats,
-            health: actualFinalHealth
-          };
         }
       }
 

@@ -204,7 +204,7 @@ export const calculateEnhancedCombatStats = (
     weaponAccuracy + accuracyBonus + (terrainEffects.accuracy || 0) + (traitBonuses.accuracy || 0) + accMod
   ));
   const finalDamage = Math.max(1,
-    weaponDamage + damageBonus + (effectiveCombat * 0.8) + (terrainEffects.damage || 0) + (traitBonuses.damage || 0) + dmgMod
+    weaponDamage + damageBonus + (effectiveCombat * 0.5) + (terrainEffects.damage || 0) + (traitBonuses.damage || 0) + dmgMod
   );
   const finalDefense = Math.max(0,
     armorDefense + (terrainEffects.defense || 0) + (traitBonuses.defense || 0) + defMod
@@ -571,11 +571,9 @@ export const simulateEnhancedCombat = (
             
             // Advanced armor calculation
             const armorReduction = target.stats.defense * 0.2; // 20% damage reduction per defense
-            const finalDamage = Math.max(1, baseDamage - armorReduction);
+            const finalDamage = Math.max(2, baseDamage - armorReduction);
 
-            // Apply cover bonus separately to avoid double-dipping defense
-            const coverReduction = target.coverBonus * 0.1; // 10% reduction per cover point
-            const adjustedDamage = Math.max(1, finalDamage - coverReduction);
+            const adjustedDamage = Math.max(1, finalDamage - (target.stats.defense + target.coverBonus) * 0.15);
             const newHealth = Math.max(0, target.health - adjustedDamage);
 
             // Equipment damage chance

@@ -34,7 +34,7 @@ export const LoginScreen = () => {
     <div 
       className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-amber-900 flex items-center justify-center p-4"
       style={{
-        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.9)), url('https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg')`,
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.9)), url('/lovable-uploads/8ee0e910-ff57-43a3-aa8e-968fc6da5e01.png')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'
