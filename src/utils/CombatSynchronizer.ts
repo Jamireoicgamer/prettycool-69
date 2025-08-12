@@ -16,11 +16,9 @@ export class CombatSynchronizer {
     mission: Mission;
     isComplete: boolean;
     actualDuration: number;
-    startedAt: number;
   }>();
   private completedCombats = new Set<string>();
   private finalResults = new Map<string, { victory: boolean; actualDuration: number; finalHealths: Record<string, number> }>();
-  private combatLocks = new Set<string>(); // Prevent duplicate starts
   
   private missionCompletionCallbacks = new Map<string, ((victory: boolean, actualDuration: number) => void)[]>();
 
@@ -40,29 +38,14 @@ export class CombatSynchronizer {
     enemies: any[],
     mission: Mission
   ): void {
-    console.log(`[CombatSync] Attempting to start combat for mission: ${missionId}`);
-    
     // Prevent duplicate or restarted combats for the same mission
     if (this.completedCombats.has(missionId)) {
-      console.log(`[CombatSync] Mission ${missionId} already completed, skipping`);
       return; // Already ran once for this mission
     }
-    
-    // Check if we're already in the process of starting this combat
-    if (this.combatLocks.has(missionId)) {
-      console.log(`[CombatSync] Mission ${missionId} is locked (starting), skipping`);
-      return;
-    }
-    
     const existing = this.activeCombats.get(missionId);
     if (existing && !existing.isComplete) {
-      console.log(`[CombatSync] Mission ${missionId} already active and not complete, skipping`);
       return; // Already running
     }
-    
-    // Lock this mission to prevent duplicate starts
-    this.combatLocks.add(missionId);
-    console.log(`[CombatSync] Starting new combat for mission: ${missionId}`);
 
     const combatAI = new EnhancedRealCombatAI();
     
@@ -70,10 +53,6 @@ export class CombatSynchronizer {
     combatAI.onUpdate((state: RealCombatState) => {
       const combatData = this.activeCombats.get(missionId);
       if (combatData && state.victory !== null) {
-        console.log(`[CombatSync] Combat ${missionId} ending with victory: ${state.victory}`);
-        console.log(`[CombatSync] Before cleanup - activeCombats:`, Array.from(this.activeCombats.keys()));
-        console.log(`[CombatSync] Before cleanup - finalResults exists:`, this.finalResults.has(missionId));
-        
         // Combat has ended
         const actualDuration = (Date.now() - state.startTime) / 1000;
         combatData.isComplete = true;
@@ -100,11 +79,6 @@ export class CombatSynchronizer {
         this.activeCombats.delete(missionId);
         this.missionCompletionCallbacks.delete(missionId);
         this.completedCombats.add(missionId);
-        this.combatLocks.delete(missionId); // Remove lock
-        
-        console.log(`[CombatSync] After cleanup - activeCombats:`, Array.from(this.activeCombats.keys()));
-        console.log(`[CombatSync] After cleanup - finalResults exists:`, this.finalResults.has(missionId));
-        console.log(`[CombatSync] After cleanup - completedCombats has:`, this.completedCombats.has(missionId));
         
         console.log(`Combat for mission ${missionId} completed: ${state.victory ? 'Victory' : 'Defeat'} after ${actualDuration}s`);
       }
@@ -118,11 +92,8 @@ export class CombatSynchronizer {
       combatAI,
       mission,
       isComplete: false,
-      actualDuration: 0,
-      startedAt: Date.now()
+      actualDuration: 0
     });
-    
-    console.log(`[CombatSync] Combat initiated for mission: ${missionId}`);
   }
 
   /**
@@ -130,10 +101,7 @@ export class CombatSynchronizer {
    */
   isCombatActive(missionId: string): boolean {
     const combatData = this.activeCombats.get(missionId);
-    const isActive = combatData ? !combatData.isComplete : false;
-    const isLocked = this.combatLocks.has(missionId);
-    console.log(`[CombatSync] isCombatActive(${missionId}): ${isActive}, locked: ${isLocked}`);
-    return isActive || isLocked; // Consider locked missions as "active" to prevent restarts
+    return combatData ? !combatData.isComplete : false;
   }
 
   /**
@@ -162,7 +130,6 @@ export class CombatSynchronizer {
   forceCombatEnd(missionId: string): void {
     const combatData = this.activeCombats.get(missionId);
     if (combatData && !combatData.isComplete) {
-      console.log(`[CombatSync] Force ending combat for mission: ${missionId}`);
       // Force the combat to end
       combatData.isComplete = true;
       combatData.actualDuration = (Date.now() - combatData.combatAI['combatState']?.startTime || Date.now()) / 1000;
@@ -185,7 +152,6 @@ export class CombatSynchronizer {
       this.activeCombats.delete(missionId);
       this.missionCompletionCallbacks.delete(missionId);
       this.completedCombats.add(missionId);
-      this.combatLocks.delete(missionId);
       
       console.log(`Forced combat end for mission ${missionId}`);
     }
@@ -203,9 +169,7 @@ export class CombatSynchronizer {
    * Get final combat results if available
    */
   getCombatResults(missionId: string): { victory: boolean; actualDuration: number; finalHealths: Record<string, number> } | null {
-    const results = this.finalResults.get(missionId) || null;
-    console.log(`[CombatSync] getCombatResults(${missionId}): ${!!results}`);
-    return results;
+    return this.finalResults.get(missionId) || null;
   }
 
   /**

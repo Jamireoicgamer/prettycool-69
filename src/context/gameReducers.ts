@@ -291,12 +291,7 @@ export const startMissionReducer = (state: GameState, action: any): GameState =>
 
 export const completeMissionReducer = (state: GameState, action: any): GameState => {
   const mission = state.activeMissions.find(m => m.id === action.missionId);
-  if (!mission) {
-    console.log(`[GameReducer] Mission ${action.missionId} not found in activeMissions`);
-    return state;
-  }
-  
-  console.log(`[GameReducer] Attempting to complete mission: ${action.missionId}, type: ${mission.type}`);
+  if (!mission) return state;
 
   let newState = { ...state };
 
@@ -307,21 +302,6 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
   // Update squad members: return to base, apply final healths/KO, and grant experience
   const synchronizer = CombatSynchronizer.getInstance();
   const results = synchronizer.getCombatResults(mission.id);
-  
-  console.log(`[GameReducer] Combat mission check - Results exist: ${!!results}`);
-  
-  // For combat missions, ensure combat has actually concluded
-  if (mission.type === 'combat') {
-    const isStillActive = synchronizer.isCombatActive(mission.id);
-    console.log(`[GameReducer] Combat mission ${mission.id} - Results: ${!!results}, Still active: ${isStillActive}`);
-    
-    if (!results || isStillActive) {
-      console.log(`[GameReducer] Combat not ready for completion, waiting...`);
-      return state; // Wait for combat to actually finish
-    }
-    
-    console.log(`[GameReducer] Combat ready for completion, proceeding...`);
-  }
 
   newState.squad = newState.squad.map(member => {
     if (mission.assignedSquad.includes(member.id)) {
@@ -336,7 +316,6 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
       // Persist combat health results if available
       const finalHealth = results?.finalHealths?.[member.id];
       if (typeof finalHealth === 'number') {
-        console.log(`[GameReducer] Applying final health to ${member.name}: ${finalHealth}`);
         updatedMember.stats = {
           ...updatedMember.stats,
           health: Math.max(0, Math.floor(finalHealth))
@@ -344,7 +323,6 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
         if (finalHealth <= 0) {
           updatedMember.status = 'knocked-out' as const;
           updatedMember.knockedOutUntil = Date.now() + (2 * 60 * 60 * 1000); // 2 hours
-          console.log(`[GameReducer] ${member.name} knocked out due to 0 health`);
         }
       }
 
@@ -446,9 +424,6 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
 
   newState.completedMissions = [...newState.completedMissions, completedMission];
   newState.activeMissions = newState.activeMissions.filter(m => m.id !== action.missionId);
-  
-  console.log(`[GameReducer] Mission ${action.missionId} completed and removed from activeMissions`);
-  console.log(`[GameReducer] Remaining active missions:`, newState.activeMissions.map(m => m.id));
 
   // Add terminal report entry for mission
   newState.terminalLore = [
@@ -469,7 +444,6 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
       ...newState.combatCooldowns,
       [mission.targetId]: Date.now() + (10 * 60 * 1000) // 10 minutes
     };
-    console.log(`[GameReducer] Added combat cooldown for target: ${mission.targetId}`);
   }
 
   return newState;

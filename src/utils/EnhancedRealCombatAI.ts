@@ -517,8 +517,6 @@ export class EnhancedRealCombatAI {
   // Enhanced combat loop with sophisticated AI
   private runEnhancedCombatLoop() {
     if (!this.combatState || !this.combatState.isActive) return;
-    
-    console.log(`[EnhancedCombatAI] Starting combat loop for mission: ${this.combatState.missionId}`);
 
     // Dynamic interval based on combat intensity (1-3 seconds)
     const baseInterval = 1500;
@@ -537,22 +535,17 @@ export class EnhancedRealCombatAI {
       // Check win/lose conditions
       const aliveCombatants = this.combatState.combatants.filter(c => c.status === 'fighting');
       const aliveEnemies = this.combatState.enemies.filter(e => e.status === 'alive');
-      
-      console.log(`[EnhancedCombatAI] Round check - Alive combatants: ${aliveCombatants.length}, Alive enemies: ${aliveEnemies.length}`);
 
       if (aliveCombatants.length === 0) {
-        console.log(`[EnhancedCombatAI] All combatants defeated, ending combat with defeat`);
         this.endCombat(false);
         clearInterval(interval);
       } else if (aliveEnemies.length === 0) {
-        console.log(`[EnhancedCombatAI] All enemies defeated, ending combat with victory`);
         this.endCombat(true);
         clearInterval(interval);
       }
 
       // Safety timeout (4 hours max for longest missions)
       if (Date.now() - this.combatState.startTime > 4 * 60 * 60 * 1000) {
-        console.log(`[EnhancedCombatAI] Combat timeout reached, ending with current status`);
         this.endCombat(aliveCombatants.length > aliveEnemies.length);
         clearInterval(interval);
       }
@@ -1360,16 +1353,9 @@ export class EnhancedRealCombatAI {
 
   private endCombat(victory: boolean) {
     if (!this.combatState) return;
-    
-    console.log(`[EnhancedCombatAI] Ending combat for mission: ${this.combatState.missionId} with victory: ${victory}`);
 
     this.combatState.isActive = false;
     this.combatState.victory = victory;
-    
-    // Ensure all callbacks are notified immediately
-    this.updateCallbacks.forEach(callback => {
-      callback(this.combatState!);
-    });
 
     this.emitEvent({
       id: this.generateEventId(),
@@ -1383,7 +1369,10 @@ export class EnhancedRealCombatAI {
     // Calculate enhanced combat results
     const result = this.calculateEnhancedCombatResults();
     
-    console.log(`[EnhancedCombatAI] Combat ended successfully for mission: ${this.combatState.missionId}`);
+    // Notify subscribers
+    this.updateCallbacks.forEach(callback => {
+      if (this.combatState) callback(this.combatState);
+    });
   }
 
   // Calculate enhanced combat results
