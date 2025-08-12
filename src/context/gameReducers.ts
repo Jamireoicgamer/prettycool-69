@@ -263,7 +263,7 @@ export const startMissionReducer = (state: GameState, action: any): GameState =>
     description: missionData.description,
     targetId: missionData.targetId,
     terrain,
-    weather: weather.id,
+    weather: weatherPick.id,
     includePlayer: missionData.includePlayer || false,
     rewards: missionData.rewards,
     enemies: scaledEnemies
@@ -306,9 +306,9 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
   newState.squad = newState.squad.map(member => {
     if (mission.assignedSquad.includes(member.id)) {
       // Base update
-      const updatedMember = {
+      let updatedMember: SquadMember = {
         ...member,
-        status: 'available' as const,
+        status: 'available',
         experience: (member.experience || 0) + experiencePerMember,
         nextLevelExp: member.nextLevelExp || 100
       };

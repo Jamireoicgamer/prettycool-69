@@ -119,6 +119,7 @@ export const calculateCombatStats = (member: SquadMember): CombatStats => {
     stealth: 40,
     tech: 40,
     charisma: 40,
+    intelligence: 50,
     health: 100,
     maxHealth: 100,
     hunger: 100,
@@ -406,7 +407,7 @@ export const simulateCombat = (squad: SquadMember[], enemies: any[]): {
       currentPhase = 'cleanup';
     }
     
-    const aliveSquad = squadHealth.filter(s => s.health > Math.ceil(s.maxHealth * 0.1));
+    const aliveSquad = squadHealth.filter(s => s.health > 0);
     const aliveEnemies = enemyHealth.filter(e => e.health > 0);
 
     if (aliveSquad.length === 0 || aliveEnemies.length === 0) {

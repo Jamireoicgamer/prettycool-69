@@ -412,7 +412,7 @@ export const simulateEnhancedCombat = (
   // Enhanced combat loop with AI and terrain
   while (true) {
     combatTime += 1;
-    const aliveSquad = squadCombat.filter(s => s.health > Math.ceil(s.maxHealth * 0.1));
+    const aliveSquad = squadCombat.filter(s => s.health > 0);
     const aliveEnemies = enemyCombat.filter(e => e.health > 0);
 
     if (aliveSquad.length === 0 || aliveEnemies.length === 0) {
@@ -574,8 +574,7 @@ export const simulateEnhancedCombat = (
             const finalDamage = Math.max(2, baseDamage - armorReduction);
 
             const adjustedDamage = Math.max(1, finalDamage - (target.stats.defense + target.coverBonus) * 0.15);
-            const minHealth = Math.ceil(target.maxHealth * 0.1);
-            const newHealth = Math.max(minHealth, target.health - adjustedDamage);
+            const newHealth = Math.max(0, target.health - adjustedDamage);
 
             // Equipment damage chance
             if (Math.random() < 0.1 && adjustedDamage > target.stats.defense) {
@@ -592,7 +591,7 @@ export const simulateEnhancedCombat = (
             }
 
             // Injury system
-            if (target.health > minHealth && newHealth === minHealth) {
+            if (newHealth === 0) {
               const injuryTypes = ['concussion', 'broken rib', 'sprained ankle', 'cuts and bruises', 'exhaustion'];
               const injury = injuryTypes[Math.floor(Math.random() * injuryTypes.length)];
               injuries[target.id] = injury;
@@ -605,7 +604,7 @@ export const simulateEnhancedCombat = (
                   moraleChanges[memberId] -= 5;
                 }
               });
-            } else if (newHealth > minHealth) {
+            } else if (newHealth > 0) {
               combatLog.push(`🎯 ${enemy.name} hit ${target.name} for ${adjustedDamage} damage`);
               moraleChanges[target.id] -= 3;
             }

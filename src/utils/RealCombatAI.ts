@@ -312,10 +312,9 @@ export class RealCombatAI {
       damage = Math.max(1, damage - target.stats.defense);
 
       // Apply damage but don't kill, only knock out
-      const minHealth = Math.ceil(target.maxHealth * 0.1);
-      const newHealth = Math.max(minHealth, target.health - damage);
+      const newHealth = Math.max(0, target.health - damage);
       
-      if (target.health > minHealth && newHealth === minHealth) {
+      if (newHealth === 0) {
         target.status = 'knocked-out';
         this.emitEvent({
           id: this.generateEventId(),

@@ -402,7 +402,7 @@ export class EnhancedRealCombatAI {
         id: member.id,
         name: member.name,
         type: 'special' in member ? 'player' : 'squad',
-        health: Math.min(maxHealth, Math.max(1, currentHealth)),
+        health: Math.min(maxHealth, Math.max(0, currentHealth)),
         maxHealth,
         stats,
         status: 'fighting',
