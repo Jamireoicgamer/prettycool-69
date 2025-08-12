@@ -295,7 +295,7 @@ export const RealTimeCombatStatus: React.FC = () => {
   const weatherNotes = weatherNotesMap[weatherId] || ['No significant effects'];
 
   return (
-    <div className="bg-red-900/20 backdrop-blur-sm rounded-xl p-4 border border-red-500/30">
+    <div className="bg-red-900/20 backdrop-blur-sm rounded-xl p-4 border border-red-500/30 animate-fade-in">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
           <h3 className="text-lg font-semibold text-red-400 mb-3 flex items-center justify-between cursor-pointer">

@@ -35,7 +35,14 @@ export const EnhancedStatus: React.FC = () => {
   const activeMission = gameState.activeMissions.find(m => m.id === selectedMission) || gameState.activeMissions[0];
   const terrain = activeMission ? getTerrainByLocation(activeMission.location) : null;
 
-  // Simulate combat for active mission
+  // Live combat health overlay from CombatSynchronizer
+  const synchronizer = CombatSynchronizer.getInstance();
+  const liveHealths: Record<string, number> = activeMission
+    ? (synchronizer.getCombatState(activeMission.id)?.combatants.reduce((acc: Record<string, number>, c) => {
+        acc[c.id] = c.health;
+        return acc;
+      }, {} as Record<string, number>) || {})
+    : {};
   const runCombatSimulation = () => {
     if (!activeMission || !activeMission.enemies) return;
     
@@ -187,9 +194,11 @@ export const EnhancedStatus: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1">
                     <Heart className="h-3 w-3 text-red-400" />
-                    <span className={`text-xs ${getStatusColor(member.stats.health, member.stats.maxHealth)}`}>
-                      {member.stats.health}/{member.stats.maxHealth}
-                    </span>
+                    {(() => { const hp = liveHealths[member.id] ?? member.stats.health; return (
+                      <span className={`text-xs ${getStatusColor(hp, member.stats.maxHealth)}`}>
+                        {Math.floor(hp)}/{member.stats.maxHealth}
+                      </span>
+                    ); })()}
                   </div>
                   <div className="flex items-center gap-1">
                     <Activity className="h-3 w-3 text-blue-400" />
@@ -225,11 +234,13 @@ export const EnhancedStatus: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Health</span>
-                  <span className={`text-sm ${getStatusColor(gameState.playerCharacter.health, gameState.playerCharacter.maxHealth)}`}>
-                    {gameState.playerCharacter.health}/{gameState.playerCharacter.maxHealth}
-                  </span>
+                  {(() => { const php = liveHealths[gameState.playerCharacter.id] ?? gameState.playerCharacter.health; return (
+                    <span className={`text-sm ${getStatusColor(php, gameState.playerCharacter.maxHealth)}`}>
+                      {Math.floor(php)}/{gameState.playerCharacter.maxHealth}
+                    </span>
+                  ); })()}
                 </div>
-                <Progress value={(gameState.playerCharacter.health / gameState.playerCharacter.maxHealth) * 100} />
+                <Progress value={((liveHealths[gameState.playerCharacter.id] ?? gameState.playerCharacter.health) / gameState.playerCharacter.maxHealth) * 100} />
                 
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Hunger</span>
