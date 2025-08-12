@@ -6,6 +6,7 @@ import { EnhancedRealCombatAI } from '@/utils/EnhancedRealCombatAI';
 import { CombatSynchronizer } from '@/utils/CombatSynchronizer';
 import { getWeatherModifiers } from '@/data/WeatherEvents';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { generateCombatEnemies } from '@/utils/EnemyFactory';
 
 export const RealTimeCombatStatus: React.FC = () => {
   const { gameState } = useGame();
@@ -105,6 +106,13 @@ export const RealTimeCombatStatus: React.FC = () => {
     const seenIds = new Set<string>();
     const updateCombatEvents = () => {
       const combatState = synchronizer.getCombatState(missionId);
+      if (combatState) {
+        // Live sync health bars from authoritative combat state
+        const latestHealths: { [id: string]: number } = {};
+        combatState.combatants.forEach(c => { latestHealths[c.id] = c.health; });
+        setSquadHealths(latestHealths);
+      }
+
       if (combatState && combatState.events.length > 0) {
         // Append any new events we haven't shown yet (by id)
         const newEvents = combatState.events.slice(-20);
@@ -132,24 +140,6 @@ export const RealTimeCombatStatus: React.FC = () => {
         });
         if (Object.keys(latestByActor).length > 0) {
           setLastMemberActions(prev => ({ ...prev, ...latestByActor }));
-        }
-
-        // Update health if damage was dealt to a named squad member
-        const latestDamage = [...newEvents].reverse().find(e => e.damage && e.target);
-        if (latestDamage && latestDamage.damage && latestDamage.target) {
-          setSquadHealths(prev => {
-            const squadMember = gameState.squad.find(m => m.name === latestDamage.target);
-            const playerHit = gameState.playerCharacter && gameState.playerCharacter.name === latestDamage.target;
-            const targetId = squadMember?.id || (playerHit ? gameState.playerCharacter!.id : null);
-            if (targetId) {
-              const current = prev[targetId] ?? (squadMember ? squadMember.stats.health : 100);
-              return {
-                ...prev,
-                [targetId]: Math.max(0, current - latestDamage.damage!)
-              };
-            }
-            return prev;
-          });
         }
       }
     };
@@ -223,31 +213,10 @@ export const RealTimeCombatStatus: React.FC = () => {
     });
     setSquadHealths(initialHealths);
 
-    // Use mission-provided enemies with equipment when available
-    const enemies = (activeMission as any).enemies && (activeMission as any).enemies.length
-      ? (activeMission as any).enemies.map((e: any, i: number) => ({
-          name: e.name || `Hostile ${i + 1}`,
-          type: e.type || 'raider',
-          health: e.health ?? 50,
-          damage: e.damage ?? 12,
-          accuracy: e.accuracy ?? 60,
-          fireRate: e.fireRate ?? 1,
-          defense: e.defense ?? 5,
-          intelligence: e.intelligence ?? 40,
-          weapon: e.weapon
-        }))
-      : Array.from({ length: activeMission.difficulty || 3 }, (_, i) => ({
-          name: `Hostile ${i + 1}`,
-          type: 'raider',
-          health: 40 + (activeMission.difficulty * 10),
-          damage: 10 + (activeMission.difficulty * 2),
-          accuracy: 60 + (activeMission.difficulty * 5),
-          fireRate: 1 + Math.max(0, activeMission.difficulty - 1),
-          defense: 3 + activeMission.difficulty,
-          intelligence: 30 + (activeMission.difficulty * 10)
-        }));
+    // Generate balanced enemies using factory (common/uncommon guns, no buffs)
+    const enemies = generateCombatEnemies(activeMission as any, combatParticipants, (activeMission as any).enemies);
 
-    synchronizer.startSynchronizedCombat(activeMission.id, combatParticipants, enemies, activeMission as any);
+    synchronizer.startSynchronizedCombat(activeMission.id, combatParticipants, enemies as any, activeMission as any);
   }, [activeMission?.id, elapsedMinutes, combatStartMinuteThreshold, gameState.squad, gameState.playerCharacter]);
 
   // If there is no mission, render the empty state AFTER all hooks are declared

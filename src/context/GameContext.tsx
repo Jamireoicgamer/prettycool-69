@@ -4,6 +4,7 @@ import { getInitialBaseModules } from '@/data/BaseModules';
 import { gameReducer } from './gameReducer';
 import { createGameActions } from './gameActions';
 import { calculateOfflineProgress, applyOfflineProgress, generateOfflineNotifications } from '@/utils/OfflineProgressSystem';
+import { CombatSynchronizer } from '@/utils/CombatSynchronizer';
 import {
   GameState,
   InventoryItem,
@@ -286,6 +287,15 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         const penaltyMultiplier = hasRetreatPenalty ? 1.25 : 1;
         const effectiveEnd = Math.floor(baseEnd * penaltyMultiplier);
         if (Date.now() >= effectiveEnd) {
+          // Gate combat missions until the synchronized combat has actually ended
+          if (mission.type === 'combat') {
+            const sync = CombatSynchronizer.getInstance();
+            const resultsReady = !!sync.getCombatResults(mission.id);
+            const stillActive = sync.isCombatActive(mission.id);
+            if (!resultsReady || stillActive) {
+              return; // wait for real combat end to persist health properly
+            }
+          }
           dispatch({ type: 'COMPLETE_MISSION', missionId: mission.id });
         }
       });

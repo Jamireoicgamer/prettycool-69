@@ -425,15 +425,8 @@ export class EnhancedRealCombatAI {
       let baseAccuracy = Math.min(95, Math.max(30, enemy.accuracy ?? 60));
       const baseDefense = enemy.defense ?? 5;
 
-      // Available chems by enemy type (no initial stat changes)
-      const isRaider = String(enemy.name || '').toLowerCase().includes('raider');
-      const isSuperMutant = String(enemy.name || '').toLowerCase().includes('mutant');
-      const isGhoul = String(enemy.name || '').toLowerCase().includes('ghoul');
-
+      // No artificial buffs/chems for enemies per design
       const availableChems: string[] = [];
-      if (isRaider) availableChems.push('jet', 'psycho');
-      if (isSuperMutant) availableChems.push('buffout');
-      if (isGhoul) availableChems.push('med-x');
 
       return {
         id: `enemy-${index}`,
@@ -963,30 +956,8 @@ export class EnhancedRealCombatAI {
     const aliveCombatants = this.combatState.combatants.filter(c => c.status === 'fighting');
     if (aliveCombatants.length === 0) return;
 
-    // 5-10% chance to use a chem depending on enemy type (once per enemy)
-    const type = (enemy.type || '').toLowerCase();
-    const chemChance = type.includes('raider') ? 0.1 : type.includes('super-mutant') ? 0.08 : 0.05;
-    if ((enemy.availableChems && enemy.availableChems.length > 0) && (!enemy.usedChems || enemy.usedChems.length === 0)) {
-      if (Math.random() < chemChance) {
-        const chem = enemy.availableChems[Math.floor(Math.random() * enemy.availableChems.length)];
-        // Apply simple, temporary effects
-        const effect: any = { type: `chem:${chem}`, duration: 10, effects: {} };
-        if (chem === 'jet') { effect.effects.accuracy = 12; enemy.accuracy = Math.min(95, enemy.accuracy + 12); }
-        if (chem === 'psycho') { effect.effects.damage = 8; enemy.damage += 8; }
-        if (chem === 'buffout') { effect.effects.damage = 6; enemy.damage += 6; }
-        if (chem === 'med-x') { effect.effects.defense = 8; enemy.defense += 8; }
-        enemy.activeEffects = [...(enemy.activeEffects || []), effect];
-        enemy.usedChems = [...(enemy.usedChems || []), chem];
-        this.emitEvent({
-          id: this.generateEventId(),
-          timestamp: Date.now(),
-          type: 'status',
-          actor: enemy.name,
-          action: CombatActionType.OBSERVE,
-          description: `💉 ${enemy.name} uses ${chem.toUpperCase()}!`
-        });
-      }
-    }
+    // Enemies do not use chems or temporary buffs (disabled for fairness)
+    // Intentionally no-op here to keep enemy stats consistent during combat
 
     const chosenAction = this.decideEnemyAction(enemy, aliveCombatants);
     
@@ -1192,22 +1163,8 @@ export class EnhancedRealCombatAI {
   // Select enemy target
   private selectEnemyTarget(enemy: RealCombatEnemy, combatants: RealCombatParticipant[]): RealCombatParticipant | null {
     if (combatants.length === 0) return null;
-    
-    switch (enemy.behavior) {
-      case 'aggressive':
-        // Target strongest/highest health
-        return combatants.reduce((strongest, current) => 
-          current.health > strongest.health ? current : strongest
-        );
-      case 'tactical':
-        // Target weakest
-        return combatants.reduce((weakest, current) => 
-          current.health < weakest.health ? current : weakest
-        );
-      default:
-        // Random target
-        return combatants[Math.floor(Math.random() * combatants.length)];
-    }
+    // Distribute damage more evenly: pick a random alive combatant
+    return combatants[Math.floor(Math.random() * combatants.length)];
   }
 
   // Update combat conditions
@@ -1266,27 +1223,9 @@ export class EnhancedRealCombatAI {
       });
     });
 
-    // Handle enemy active effects and expiry (revert buffs)
+    // Enemy active effects not used as chems are disabled; keep array clean
     this.combatState.enemies.forEach(enemy => {
-      if (!enemy.activeEffects || enemy.activeEffects.length === 0) return;
-      enemy.activeEffects = enemy.activeEffects.filter(effect => {
-        effect.duration--;
-        if (effect.duration <= 0) {
-          if (effect.effects?.accuracy) enemy.accuracy = Math.max(5, enemy.accuracy - effect.effects.accuracy);
-          if (effect.effects?.damage) enemy.damage = Math.max(1, enemy.damage - effect.effects.damage);
-          if (effect.effects?.defense) enemy.defense = Math.max(0, enemy.defense - effect.effects.defense);
-          this.emitEvent({
-            id: this.generateEventId(),
-            timestamp: Date.now(),
-            type: 'status',
-            actor: enemy.name,
-            action: CombatActionType.OBSERVE,
-            description: `⏳ ${enemy.name}'s ${String(effect.type).replace('chem:','').toUpperCase()} wears off`
-          });
-          return false;
-        }
-        return true;
-      });
+      enemy.activeEffects = (enemy.activeEffects || []).filter(() => false);
     });
   }
 
