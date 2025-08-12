@@ -5,6 +5,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
+// Fallback to prevent runtime crashes if stale bundles still reference TooltipProvider
+const TooltipProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => <>{children}</>;
 
 const queryClient = new QueryClient();
 
