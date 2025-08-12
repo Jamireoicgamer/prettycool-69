@@ -473,7 +473,7 @@ export class EnhancedRealCombatAI {
     };
     
     // Pace: slow down combat to simulate longer, more tactical engagements
-    this.damagePace = 0.25; // divide combat damage throughput by 4
+    this.damagePace = 1.0; // normal pacing so damage is visible and fights resolve
 
     // Start the enhanced combat simulation loop
     this.runEnhancedCombatLoop();

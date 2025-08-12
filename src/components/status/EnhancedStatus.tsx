@@ -24,6 +24,7 @@ import {
   XCircle,
   User
 } from 'lucide-react';
+import { CombatSynchronizer } from '@/utils/CombatSynchronizer';
 
 export const EnhancedStatus: React.FC = () => {
   const { gameState } = useGame();
