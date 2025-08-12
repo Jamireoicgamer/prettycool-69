@@ -7,6 +7,7 @@ import { pickWeatherForTerrain } from '@/data/WeatherEvents';
 import { getTerrainByLocation } from '@/data/TerrainTypes';
 import { SQUAD_PERKS } from '@/data/SquadPerks';
 import { chooseEnemyPerks, chooseEnemyPerksForBalance } from '@/utils/PerkSystem';
+import { CombatSynchronizer } from '@/utils/CombatSynchronizer';
 
 export const manageFusionCoresReducer = (state: GameState, action: any): GameState => {
   switch (action.action) {
@@ -246,6 +247,10 @@ export const startMissionReducer = (state: GameState, action: any): GameState =>
     };
   });
 
+  // Determine terrain and weather
+  const terrain = missionData.terrain || getTerrainByLocation(missionData.location).id;
+  const weatherPick = missionData.weather ? { id: missionData.weather } : pickWeatherForTerrain(terrain);
+
   const mission: Mission = {
     id: missionId,
     title: missionData.title || 'Unknown Mission',
@@ -294,15 +299,32 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
   const baseExperience = (mission.rewards?.experience || 50) + (mission.difficulty * 25);
   const experiencePerMember = Math.floor(baseExperience / mission.assignedSquad.length);
 
-  // Update squad members: return to available status and grant experience
+  // Update squad members: return to base, apply final healths/KO, and grant experience
+  const synchronizer = CombatSynchronizer.getInstance();
+  const results = synchronizer.getCombatResults(mission.id);
+
   newState.squad = newState.squad.map(member => {
     if (mission.assignedSquad.includes(member.id)) {
+      // Base update
       const updatedMember = {
         ...member,
         status: 'available' as const,
         experience: (member.experience || 0) + experiencePerMember,
         nextLevelExp: member.nextLevelExp || 100
       };
+
+      // Persist combat health results if available
+      const finalHealth = results?.finalHealths?.[member.id];
+      if (typeof finalHealth === 'number') {
+        updatedMember.stats = {
+          ...updatedMember.stats,
+          health: Math.max(0, Math.floor(finalHealth))
+        };
+        if (finalHealth <= 0) {
+          updatedMember.status = 'knocked-out' as const;
+          updatedMember.knockedOutUntil = Date.now() + (2 * 60 * 60 * 1000); // 2 hours
+        }
+      }
 
       // Check for level up
       if (updatedMember.experience >= updatedMember.nextLevelExp) {
@@ -316,16 +338,13 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
           const availablePerks = SQUAD_PERKS.filter(perk => {
             const owned = new Set(member.perks || []);
             if (owned.has(perk.id)) return false;
-            
             const levelReq = perk.requires?.level || 1;
             if (updatedMember.level < levelReq) return false;
-            
             const priorPerks = perk.requires?.perks || [];
             return priorPerks.every(p => owned.has(p));
           });
 
           if (availablePerks.length > 0) {
-            // Pick based on specialization preference
             let preferredPerk = availablePerks.find(perk => {
               if (member.specialization === 'combat' && perk.path === 'assault') return true;
               if (member.specialization === 'stealth' && perk.path === 'scout') return true;
@@ -333,15 +352,10 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
               if (member.specialization === 'medic' && perk.path === 'support') return true;
               return false;
             });
-
-            if (!preferredPerk) {
-              preferredPerk = availablePerks[0]; // Fallback to first available
-            }
-
+            if (!preferredPerk) preferredPerk = availablePerks[0];
             updatedMember.perks = [...(member.perks || []), preferredPerk.id];
             updatedMember.perkPoints = updatedMember.perkPoints - 1;
-            
-            // Add perk selection notification
+
             newState.pendingNotifications = [
               ...newState.pendingNotifications,
               {
@@ -355,7 +369,6 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
           }
         }
 
-        // Add level up notification
         newState.pendingNotifications = [
           ...newState.pendingNotifications,
           {

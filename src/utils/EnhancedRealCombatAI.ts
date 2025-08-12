@@ -1289,7 +1289,6 @@ export class EnhancedRealCombatAI {
       });
     });
   }
-  }
 
   // Update action cooldowns
   private updateActionCooldowns() {

@@ -181,6 +181,8 @@ export const RealTimeCombatStatus: React.FC = () => {
 
     // Wait until after travel and setup phases
     if (elapsedMinutes < combatStartMinuteThreshold) return;
+    // Do not restart if results already exist or combat is active
+    if (synchronizer.getCombatResults(activeMission.id)) return;
     if (synchronizer.isCombatActive(activeMission.id)) return; // Already started
 
     // Build participants
@@ -291,6 +293,7 @@ export const RealTimeCombatStatus: React.FC = () => {
   const weatherName = weatherNameMap[weatherId] || weatherId;
   const weatherNotes = weatherNotesMap[weatherId] || ['No significant effects'];
 
+  return (
     <div className="bg-red-900/20 backdrop-blur-sm rounded-xl p-4 border border-red-500/30">
       <h3 className="text-lg font-semibold text-red-400 mb-3 flex items-center justify-between cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
         <span className="flex items-center"><Sword className="mr-2 animate-pulse" size={20} />Live View</span>
@@ -299,241 +302,217 @@ export const RealTimeCombatStatus: React.FC = () => {
 
       {isOpen && (
         <>
-        {/* Phase Title */}
-        <div className="text-sm text-gray-300 mb-2">
-          {missionPhase === 'travel' && `En Route: ${activeMission.title}`}
-          {missionPhase === 'setup' && `Deploying: ${activeMission.title}`}
-          {missionPhase === 'combat' && `Active Combat: ${activeMission.title}`}
-          {missionPhase === 'return' && `Returning: ${activeMission.title}`}
-        </div>
+          {/* Phase Title */}
+          <div className="text-sm text-gray-300 mb-2">
+            {missionPhase === 'travel' && `En Route: ${activeMission.title}`}
+            {missionPhase === 'setup' && `Deploying: ${activeMission.title}`}
+            {missionPhase === 'combat' && `Active Combat: ${activeMission.title}`}
+            {missionPhase === 'return' && `Returning: ${activeMission.title}`}
+          </div>
 
-      {/* Mission Info */}
-      <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">Location:</span>
-            <span className="text-yellow-400">{activeMission.location}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">Squad Size:</span>
-            <span className="text-blue-400">{activeMission.assignedSquad.length} operatives</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">Phase:</span>
-            <span className={`font-semibold ${
-              missionPhase === 'travel' ? 'text-yellow-400' :
-              missionPhase === 'setup' ? 'text-blue-400' :
-              missionPhase === 'combat' ? 'text-red-400' : 'text-green-400'
-            }`}>
-              {missionPhase.toUpperCase()}
-            </span>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">Time Left:</span>
-            <span className="text-green-400">{Math.ceil(timeLeft / 60000)}m</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">Difficulty:</span>
-            <span className="text-orange-400">Level {activeMission.difficulty || 1}</span>
-          </div>
-          {terrain && (
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Terrain:</span>
-              <span className="text-purple-400 flex items-center">
-                <Map className="mr-1" size={12} />
-                {terrain.name}
-              </span>
+          {/* Mission Info */}
+          <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Location:</span>
+                <span className="text-yellow-400">{activeMission.location}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Squad Size:</span>
+                <span className="text-blue-400">{activeMission.assignedSquad.length} operatives</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Phase:</span>
+                <span className={`font-semibold ${
+                  missionPhase === 'travel' ? 'text-yellow-400' :
+                  missionPhase === 'setup' ? 'text-blue-400' :
+                  missionPhase === 'combat' ? 'text-red-400' : 'text-green-400'
+                }`}>
+                  {missionPhase.toUpperCase()}
+                </span>
+              </div>
             </div>
-          )}
-        {/* Progress Bar */}
-        <div className="w-full bg-gray-700 rounded-full h-3 mb-4">
-          <div 
-            className="bg-gradient-to-r from-red-600 to-orange-500 h-3 rounded-full transition-all animate-pulse"
-            style={{ width: `${progress}%` }}
-        </>
-      )}
-    </div>
-            <div>
-              <span className="text-red-400">Squad Penalties:</span>
-              <ul className="text-red-300 mt-1 space-y-1">
-                {Object.entries(terrain.playerEffects).map(([effect, value]) => 
-                  value < 0 && (
-                    <li key={effect}>{value} {effect}</li>
-                  )
-                )}
-              </ul>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Time Left:</span>
+                <span className="text-green-400">{Math.ceil(timeLeft / 60000)}m</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Difficulty:</span>
+                <span className="text-orange-400">Level {activeMission.difficulty || 1}</span>
+              </div>
+              {terrain && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Terrain:</span>
+                  <span className="text-purple-400 flex items-center">
+                    <Map className="mr-1" size={12} />
+                    {terrain.name}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Weather Effects */}
-      <div className="bg-cyan-900/20 rounded-lg p-3 mb-4">
-        <h4 className="text-cyan-400 font-medium mb-2 flex items-center">
-          <Map className="mr-1" size={16} />
-          Weather: {weatherName}
-        </h4>
-        <ul className="text-cyan-300 text-xs list-disc pl-4 space-y-1">
-          {weatherNotes.map((n, i) => (
-            <li key={i}>{n}</li>
-          ))}
-        </ul>
-        
-        {/* Squad Active Chems */}
-        {activeMission.assignedSquad.some(memberId => {
-          const member = gameState.squad.find(m => m.id === memberId);
-          return member?.activeChems && member.activeChems.length > 0;
-        }) && (
-          <div className="mt-3 pt-2 border-t border-cyan-500/30">
-            <p className="text-cyan-400 text-xs font-medium mb-1">Active Squad Buffs:</p>
+          {/* Progress Bar */}
+          <div className="w-full bg-gray-700 rounded-full h-3 mb-4">
+            <div 
+              className="bg-gradient-to-r from-red-600 to-orange-500 h-3 rounded-full transition-all animate-pulse"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+          {/* Weather Effects */}
+          <div className="bg-cyan-900/20 rounded-lg p-3 mb-4">
+            <h4 className="text-cyan-400 font-medium mb-2 flex items-center">
+              <Map className="mr-1" size={16} />
+              Weather: {weatherName}
+            </h4>
+            <ul className="text-cyan-300 text-xs list-disc pl-4 space-y-1">
+              {weatherNotes.map((n, i) => (
+                <li key={i}>{n}</li>
+              ))}
+            </ul>
+            {/* Squad Active Chems */}
+            {activeMission.assignedSquad.some(memberId => {
+              const member = gameState.squad.find(m => m.id === memberId);
+              return member?.activeChems && member.activeChems.length > 0;
+            }) && (
+              <div className="mt-3 pt-2 border-t border-cyan-500/30">
+                <p className="text-cyan-400 text-xs font-medium mb-1">Active Squad Buffs:</p>
+                {activeMission.assignedSquad.map(memberId => {
+                  const member = gameState.squad.find(m => m.id === memberId);
+                  if (!member?.activeChems || member.activeChems.length === 0) return null;
+                  return (
+                    <div key={memberId} className="text-xs text-purple-300">
+                      <span className="font-medium">{member.name}:</span>
+                      {member.activeChems.map(chem => {
+                        const timeLeft = Math.max(0, (chem.appliedAt + chem.duration) - Date.now());
+                        const minutes = Math.floor(timeLeft / 60000);
+                        const seconds = Math.floor((timeLeft % 60000) / 1000);
+                        return (
+                          <span key={chem.id} className="ml-1">
+                            {chem.name} ({minutes}:{seconds.toString().padStart(2, '0')})
+                          </span>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Live View Log */}
+          <div className="bg-black/40 rounded-lg p-3">
+            <h4 className="text-white font-medium mb-2 flex items-center">
+              <Target className="mr-1" size={16} />
+              {missionPhase === 'travel' && 'Live View'}
+              {missionPhase === 'setup' && 'Live View'}
+              {missionPhase === 'combat' && 'Live View'}
+              {missionPhase === 'return' && 'Live View'}
+            </h4>
+            <div className="max-h-32 overflow-y-auto space-y-1">
+              {combatActions.length === 0 ? (
+                <div className="text-gray-500 text-xs">
+                  {missionPhase === 'travel' && 'Squad moving to target location...'}
+                  {missionPhase === 'setup' && 'Squad establishing positions...'}
+                  {missionPhase === 'combat' && 'Monitoring squad communications...'}
+                  {missionPhase === 'return' && 'Squad returning to base...'}
+                </div>
+              ) : (
+                combatActions.map((action, index) => (
+                  <div 
+                    key={index} 
+                    className={`text-xs flex items-center space-x-2 ${
+                      index === 0 ? 'text-yellow-300 animate-pulse' : 
+                      index < 3 ? 'text-gray-300' : 'text-gray-500'
+                    }`}
+                  >
+                    <Clock size={10} />
+                    <span>{action}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Squad Member Status */}
+          <div className="mt-4 grid grid-cols-1 gap-2">
+            <h4 className="text-white font-medium flex items-center">
+              <Shield className="mr-1" size={16} />
+              Squad Status
+            </h4>
             {activeMission.assignedSquad.map(memberId => {
               const member = gameState.squad.find(m => m.id === memberId);
-              if (!member?.activeChems || member.activeChems.length === 0) return null;
-              
+              if (!member) return null;
+              const currentHealth = squadHealths[memberId] !== undefined ? squadHealths[memberId] : member.stats.health;
+              let currentAction = '';
+              let actionColor = '';
+              if (currentHealth <= 0) {
+                currentAction = 'KNOCKED OUT';
+                actionColor = 'text-red-400';
+              } else if (missionPhase === 'travel') {
+                const travelSteps = ['Departed base', 'Crossing backroads', 'Scouting route', 'Approaching objective'];
+                const stepIndex = travelMinutes > 0 
+                  ? Math.min(travelSteps.length - 1, Math.floor((elapsedMinutes / Math.max(travelMinutes, 0.01)) * travelSteps.length))
+                  : 0;
+                currentAction = travelSteps[stepIndex];
+                actionColor = 'text-yellow-400';
+              } else if (missionPhase === 'setup') {
+                const setupSteps = ['Forming perimeter', 'Synchronizing comms', 'Final weapon checks', 'Marking fields of fire'];
+                const setupProgress = Math.max(0, Math.min(1, (elapsedMinutes - Math.max(0, travelMinutes)) / Math.max(0.01, setupMinutes)));
+                const stepIndex = Math.min(setupSteps.length - 1, Math.floor(setupProgress * setupSteps.length));
+                currentAction = setupSteps[stepIndex];
+                actionColor = 'text-blue-400';
+              } else if (missionPhase === 'combat') {
+                const weapon = member.equipment?.weapon;
+                const combatFallbackActions = weapon 
+                  ? [`Firing ${weapon}`, 'Reloading', 'Taking aim', 'Finding cover', 'Flanking enemy']
+                  : ['Melee combat', 'Taking cover', 'Flanking enemy', 'Defending position'];
+                currentAction = lastMemberActions[member.name] || combatFallbackActions[Math.floor(((tick/12)|0) % combatFallbackActions.length)];
+                actionColor = currentAction.toLowerCase().includes('hit') || currentAction.toLowerCase().includes('firing') || currentAction.toLowerCase().includes('attack') ? 'text-red-400' : 
+                  currentAction.toLowerCase().includes('cover') || currentAction.toLowerCase().includes('defend') ? 'text-blue-400' : 'text-orange-400';
+              } else {
+                const returnSteps = ['Securing site', 'Packaging intel', 'Extracting safely', 'Reporting in'];
+                const returnProgress = Math.max(0, Math.min(1, (elapsedMinutes - combatStartMinuteThreshold) / Math.max(0.01, missionDurationMinutes - combatStartMinuteThreshold)));
+                const stepIndex = Math.min(returnSteps.length - 1, Math.floor(returnProgress * returnSteps.length));
+                currentAction = returnSteps[stepIndex];
+                actionColor = 'text-green-400';
+              }
+
+              const healthPercent = (currentHealth / member.stats.maxHealth) * 100;
+              const healthColor = healthPercent > 75 ? 'text-green-400' : 
+                                  healthPercent > 50 ? 'text-yellow-400' : 
+                                  healthPercent > 25 ? 'text-orange-400' : 'text-red-400';
+
               return (
-                <div key={memberId} className="text-xs text-purple-300">
-                  <span className="font-medium">{member.name}:</span>
-                  {member.activeChems.map(chem => {
-                    const timeLeft = Math.max(0, (chem.appliedAt + chem.duration) - Date.now());
-                    const minutes = Math.floor(timeLeft / 60000);
-                    const seconds = Math.floor((timeLeft % 60000) / 1000);
-                    return (
-                      <span key={chem.id} className="ml-1">
-                        {chem.name} ({minutes}:{seconds.toString().padStart(2, '0')})
-                      </span>
-                    );
-                  })}
+                <div key={memberId} className="flex items-center justify-between text-xs bg-black/20 rounded p-2">
+                  <span className="text-white">{member.name}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className={`${actionColor} flex items-center`}>
+                      {currentAction}
+                    </span>
+                    <span className={healthColor}>HP: {Math.floor(currentHealth)}</span>
+                  </div>
                 </div>
               );
             })}
-          </div>
-        )}
-      </div>
 
-      {/* Real-time Combat Log */}
-      <div className="bg-black/40 rounded-lg p-3">
-        <h4 className="text-white font-medium mb-2 flex items-center">
-          <Target className="mr-1" size={16} />
-          {missionPhase === 'travel' && 'Travel Status'}
-          {missionPhase === 'setup' && 'Deployment Status'}
-          {missionPhase === 'combat' && 'Live Combat Actions'}
-          {missionPhase === 'return' && 'Extraction Status'}
-        </h4>
-        <div className="max-h-32 overflow-y-auto space-y-1">
-          {combatActions.length === 0 ? (
-            <div className="text-gray-500 text-xs">
-              {missionPhase === 'travel' && 'Squad moving to target location...'}
-              {missionPhase === 'setup' && 'Squad establishing positions...'}
-              {missionPhase === 'combat' && 'Monitoring squad communications...'}
-              {missionPhase === 'return' && 'Squad returning to base...'}
-            </div>
-          ) : (
-            combatActions.map((action, index) => (
-              <div 
-                key={index} 
-                className={`text-xs flex items-center space-x-2 ${
-                  index === 0 ? 'text-yellow-300 animate-pulse' : 
-                  index < 3 ? 'text-gray-300' : 'text-gray-500'
-                }`}
-              >
-                <Clock size={10} />
-                <span>{action}</span>
+            {/* Show player character if included in mission */}
+            {activeMission.includePlayer && gameState.playerCharacter && (
+              <div className="flex items-center justify-between text-xs bg-black/20 rounded p-2 border border-blue-500/30">
+                <span className="text-blue-300 font-semibold">{gameState.playerCharacter.name} (YOU)</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-blue-400 flex items-center">Leading</span>
+                  <span className="text-green-400">
+                    HP: {Math.floor(squadHealths[gameState.playerCharacter.id] || gameState.playerCharacter.health || 100)}
+                  </span>
+                </div>
               </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Squad Member Status */}
-      <div className="mt-4 grid grid-cols-1 gap-2">
-        <h4 className="text-white font-medium flex items-center">
-          <Shield className="mr-1" size={16} />
-          Squad Status
-        </h4>
-        {activeMission.assignedSquad.map(memberId => {
-          const member = gameState.squad.find(m => m.id === memberId);
-          if (!member) return null;
-
-          // Use real-time health from combat simulation
-          const currentHealth = squadHealths[memberId] !== undefined 
-            ? squadHealths[memberId] 
-            : member.stats.health;
-
-          // Phase-specific actions with weapon integration
-          let currentAction = '';
-          let actionColor = '';
-          
-          if (currentHealth <= 0) {
-            currentAction = 'KNOCKED OUT';
-            actionColor = 'text-red-400';
-          } else if (missionPhase === 'travel') {
-            const travelSteps = ['Departed base', 'Crossing backroads', 'Scouting route', 'Approaching objective'];
-            const stepIndex = travelMinutes > 0 
-              ? Math.min(travelSteps.length - 1, Math.floor((elapsedMinutes / Math.max(travelMinutes, 0.01)) * travelSteps.length))
-              : 0;
-            currentAction = travelSteps[stepIndex];
-            actionColor = 'text-yellow-400';
-          } else if (missionPhase === 'setup') {
-            const setupSteps = ['Forming perimeter', 'Synchronizing comms', 'Final weapon checks', 'Marking fields of fire'];
-            const setupProgress = Math.max(0, Math.min(1, (elapsedMinutes - Math.max(0, travelMinutes)) / Math.max(0.01, setupMinutes)));
-            const stepIndex = Math.min(setupSteps.length - 1, Math.floor(setupProgress * setupSteps.length));
-            currentAction = setupSteps[stepIndex];
-            actionColor = 'text-blue-400';
-          } else if (missionPhase === 'combat') {
-            const weapon = member.equipment?.weapon;
-            const combatFallbackActions = weapon 
-              ? [`Firing ${weapon}`, 'Reloading', 'Taking aim', 'Finding cover', 'Flanking enemy']
-              : ['Melee combat', 'Taking cover', 'Flanking enemy', 'Defending position'];
-            currentAction = lastMemberActions[member.name] || combatFallbackActions[Math.floor(((tick/12)|0) % combatFallbackActions.length)];
-            actionColor = currentAction.toLowerCase().includes('hit') || currentAction.toLowerCase().includes('firing') || currentAction.toLowerCase().includes('attack') ? 'text-red-400' : 
-                         currentAction.toLowerCase().includes('cover') || currentAction.toLowerCase().includes('defend') ? 'text-blue-400' : 'text-orange-400';
-          } else {
-            const returnSteps = ['Securing site', 'Packaging intel', 'Extracting safely', 'Reporting in'];
-            const returnProgress = Math.max(0, Math.min(1, (elapsedMinutes - combatStartMinuteThreshold) / Math.max(0.01, missionDurationMinutes - combatStartMinuteThreshold)));
-            const stepIndex = Math.min(returnSteps.length - 1, Math.floor(returnProgress * returnSteps.length));
-            currentAction = returnSteps[stepIndex];
-            actionColor = 'text-green-400';
-          }
-
-          const healthPercent = (currentHealth / member.stats.maxHealth) * 100;
-          const healthColor = healthPercent > 75 ? 'text-green-400' : 
-                            healthPercent > 50 ? 'text-yellow-400' : 
-                            healthPercent > 25 ? 'text-orange-400' : 'text-red-400';
-
-          return (
-            <div key={memberId} className="flex items-center justify-between text-xs bg-black/20 rounded p-2">
-              <span className="text-white">{member.name}</span>
-              <div className="flex items-center space-x-2">
-                <span className={`${actionColor} flex items-center`}>
-                  {currentAction === 'Attacking' && <Sword size={10} className="mr-1" />}
-                  {currentAction === 'Defending' && <Shield size={10} className="mr-1" />}
-                  {currentAction === 'Moving' && <Eye size={10} className="mr-1" />}
-                  {currentAction}
-                </span>
-                <span className={healthColor}>HP: {Math.floor(currentHealth)}</span>
-              </div>
-            </div>
-          );
-        })}
-        
-        {/* Show player character if included in mission */}
-        {activeMission.includePlayer && gameState.playerCharacter && (
-          <div className="flex items-center justify-between text-xs bg-black/20 rounded p-2 border border-blue-500/30">
-            <span className="text-blue-300 font-semibold">{gameState.playerCharacter.name} (YOU)</span>
-            <div className="flex items-center space-x-2">
-              <span className="text-blue-400 flex items-center">
-                <Shield size={10} className="mr-1" />
-                Leading
-              </span>
-              <span className="text-green-400">
-                HP: {Math.floor(squadHealths[gameState.playerCharacter.id] || gameState.playerCharacter.health || 100)}
-              </span>
-            </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 };
