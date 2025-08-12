@@ -51,10 +51,15 @@ export const SquadManagement = () => {
         .filter(m => m.type === 'combat')
         .forEach(m => {
           const state = sync.getCombatState(m.id);
-          state?.combatants.forEach(c => { map[c.id] = c.health; });
+          if (state?.combatants) {
+            state.combatants.forEach(c => { 
+              map[c.id] = c.health;
+              console.log(`[SquadMgmt] Live health update for ${c.name}: ${c.health}`);
+            });
+          }
         });
       setLiveHealths(map);
-    }, 1000);
+    }, 500); // Update more frequently for better responsiveness
     return () => clearInterval(id);
   }, [gameState.activeMissions]);
 

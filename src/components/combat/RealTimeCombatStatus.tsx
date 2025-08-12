@@ -18,6 +18,7 @@ export const RealTimeCombatStatus: React.FC = () => {
   const [tick, setTick] = useState(0);
   const [lastMemberActions, setLastMemberActions] = useState<{ [memberId: string]: string }>({});
   const [isOpen, setIsOpen] = useState(false);
+  const [combatInitialized, setCombatInitialized] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
@@ -169,12 +170,49 @@ export const RealTimeCombatStatus: React.FC = () => {
   useEffect(() => {
     if (!activeMission) return;
     const synchronizer = CombatSynchronizer.getInstance();
+    
+    // Prevent multiple initializations for the same mission
+    if (combatInitialized.has(activeMission.id)) {
+      return;
+    }
+    
+    console.log(`[RTCS] Effect triggered for mission: ${activeMission.id}`);
+    console.log(`[RTCS] Elapsed minutes: ${elapsedMinutes.toFixed(2)}, Threshold: ${combatStartMinuteThreshold.toFixed(2)}`);
 
     // Wait until after travel and setup phases
-    if (elapsedMinutes < combatStartMinuteThreshold) return;
+    if (elapsedMinutes < combatStartMinuteThreshold) {
+      return;
+    }
+    
+      console.log(`[RTCS] Still in travel/setup phase, waiting...`);
+      return;
+    }
+    
     // Do not restart if results already exist or combat is active
-    if (synchronizer.getCombatResults(activeMission.id)) return;
-    if (synchronizer.isCombatActive(activeMission.id)) return; // Already started
+    const existingResults = synchronizer.getCombatResults(activeMission.id);
+    const isActive = synchronizer.isCombatActive(activeMission.id);
+    
+    if (existingResults) {
+      setCombatInitialized(prev => new Set([...prev, activeMission.id]));
+      return;
+    }
+    if (isActive) {
+      setCombatInitialized(prev => new Set([...prev, activeMission.id]));
+      return;
+    }
+    
+    console.log(`[RTCS] Combat check - Results exist: ${!!existingResults}, Is active: ${isActive}`);
+    
+    if (existingResults) {
+      console.log(`[RTCS] Combat results already exist for ${activeMission.id}, skipping`);
+      return;
+    }
+    if (isActive) {
+      console.log(`[RTCS] Combat already active for ${activeMission.id}, skipping`);
+      return;
+    }
+    
+    console.log(`[RTCS] === INITIATING COMBAT FOR ${activeMission.id} ===`);
 
     // Build participants
     const squadMembers = activeMission.assignedSquad
@@ -216,8 +254,19 @@ export const RealTimeCombatStatus: React.FC = () => {
     // Generate balanced enemies using factory (common/uncommon guns, no buffs)
     const enemies = generateCombatEnemies(activeMission as any, combatParticipants, (activeMission as any).enemies);
 
+    console.log(`[RTCS] Starting combat with ${combatParticipants.length} participants vs ${enemies.length} enemies`);
     synchronizer.startSynchronizedCombat(activeMission.id, combatParticipants, enemies as any, activeMission as any);
+    
+    // Mark this mission as initialized to prevent re-initialization
+    setCombatInitialized(prev => new Set([...prev, activeMission.id]));
   }, [activeMission?.id, elapsedMinutes, combatStartMinuteThreshold, gameState.squad, gameState.playerCharacter]);
+  
+  // Clean up initialized missions when they're no longer active
+  useEffect(() => {
+    if (!activeMission) {
+      setCombatInitialized(new Set());
+    }
+  }, [activeMission]);
 
   // If there is no mission, render the empty state AFTER all hooks are declared
   if (!activeMission) {

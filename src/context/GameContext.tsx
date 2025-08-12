@@ -278,6 +278,8 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const checkMissions = () => {
       gameState.activeMissions.forEach(mission => {
+        console.log(`[GameContext] Checking mission: ${mission.id}, type: ${mission.type}`);
+        
         // Base end time
         const baseEnd = mission.startTime + mission.duration * 60000;
         // If any assigned member is knocked out or at critical HP (<=5), add 25% slower extraction
@@ -286,22 +288,28 @@ export const GameProvider = ({ children }: { children: ReactNode }) => {
         );
         const penaltyMultiplier = hasRetreatPenalty ? 1.25 : 1;
         const effectiveEnd = Math.floor(baseEnd * penaltyMultiplier);
+        
+        console.log(`[GameContext] Mission ${mission.id} - Current: ${Date.now()}, End: ${effectiveEnd}, Ready: ${Date.now() >= effectiveEnd}`);
+        
         if (Date.now() >= effectiveEnd) {
           // Gate combat missions until the synchronized combat has actually ended
           if (mission.type === 'combat') {
             const sync = CombatSynchronizer.getInstance();
             const resultsReady = !!sync.getCombatResults(mission.id);
             const stillActive = sync.isCombatActive(mission.id);
+            console.log(`[GameContext] Combat mission ${mission.id} - Results ready: ${resultsReady}, Still active: ${stillActive}`);
             if (!resultsReady || stillActive) {
+              console.log(`[GameContext] Combat not ready, waiting for synchronizer...`);
               return; // wait for real combat end to persist health properly
             }
           }
+          console.log(`[GameContext] Completing mission: ${mission.id}`);
           dispatch({ type: 'COMPLETE_MISSION', missionId: mission.id });
         }
       });
     };
 
-    const missionInterval = setInterval(checkMissions, 1000);
+    const missionInterval = setInterval(checkMissions, 2000); // Check every 2 seconds instead of 1
     return () => clearInterval(missionInterval);
   }, [gameState.activeMissions, gameState.squad]);
 
