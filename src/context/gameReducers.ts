@@ -419,19 +419,51 @@ export const completeMissionReducer = (state: GameState, action: any): GameState
   const completedMission: CompletedMission = {
     ...mission,
     completedAt: Date.now(),
-    success: true
+    success: results?.victory ?? true
   };
 
   newState.completedMissions = [...newState.completedMissions, completedMission];
   newState.activeMissions = newState.activeMissions.filter(m => m.id !== action.missionId);
 
-  // Add terminal report entry for mission
+  // Build detailed terminal report (online combat has rich report)
+  const report = synchronizer.getCombatReport(mission.id);
+  const memberMap = new Map(newState.squad.map(m => [m.id, m]));
+  const finalHealths = results?.finalHealths || {};
+  const casualties = Object.entries(finalHealths)
+    .filter(([id, hp]) => (hp as number) <= 0)
+    .map(([id]) => memberMap.get(id)?.name)
+    .filter(Boolean) as string[];
+  let topDamageLines: string[] = [];
+  if (report?.events && report.events.length) {
+    const dmgByActor: Record<string, number> = {};
+    report.events.forEach(evt => {
+      if (evt.type === 'damage' && evt.actor && typeof evt.damage === 'number') {
+        dmgByActor[evt.actor] = (dmgByActor[evt.actor] || 0) + evt.damage;
+      }
+    });
+    topDamageLines = Object.entries(dmgByActor)
+      .sort((a,b) => b[1]-a[1])
+      .slice(0,3)
+      .map(([actor, dmg]) => `${actor}: ${Math.round(dmg)} dmg`);
+  }
+  const hpLines = mission.assignedSquad.map(id => {
+    const m = memberMap.get(id);
+    const hp = finalHealths[id];
+    return m ? `${m.name}: ${typeof hp === 'number' ? Math.max(0, Math.floor(hp)) : m.stats.health}/${m.stats.maxHealth}` : '';
+  }).filter(Boolean);
+
+  const detailedContent = mission.type === 'combat'
+    ? `Mission "${mission.title}" at ${mission.location} ${results?.victory ? 'ended in Victory' : 'ended in Defeat'}.
+Duration: ${Math.floor((results?.actualDuration || 0))}s.
+Squad Status: ${hpLines.join(', ')}${casualties.length ? `\nCasualties: ${casualties.join(', ')}` : ''}${topDamageLines.length ? `\nTop Damage: ${topDamageLines.join(' | ')}` : ''}`
+    : `Operation "${mission.title}" at ${mission.location} completed.`;
+
   newState.terminalLore = [
     ...(newState.terminalLore || []),
     {
       id: `mission-${mission.id}-${Date.now()}`,
       title: mission.type === 'combat' ? 'Combat Report' : 'Operation Report',
-      content: `Mission "${mission.title}" at ${mission.location} completed. ${mission.type === 'combat' ? 'Battle concluded.' : 'Operation finished.'}`,
+      content: detailedContent,
       timestamp: Date.now(),
       unlockedBy: mission.type,
       category: mission.type === 'combat' ? 'combat' : 'operations'

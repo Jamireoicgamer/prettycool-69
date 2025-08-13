@@ -18,7 +18,10 @@ export class CombatSynchronizer {
     actualDuration: number;
   }>();
   private completedCombats = new Set<string>();
-  private finalResults = new Map<string, { victory: boolean; actualDuration: number; finalHealths: Record<string, number> }>();
+  private startedCombats = new Set<string>();
+  private finalResults = new Map<string, { victory: boolean; actualDuration: number; finalHealths: Record<string, number>; events?: RealCombatEvent[]; }>();
+  private eventLogs = new Map<string, RealCombatEvent[]>();
+  private eventIdSets = new Map<string, Set<string>>();
   
   private missionCompletionCallbacks = new Map<string, ((victory: boolean, actualDuration: number) => void)[]>();
 
@@ -49,9 +52,32 @@ export class CombatSynchronizer {
 
     const combatAI = new EnhancedRealCombatAI();
     
-    // Listen for combat completion
+    // Mark as started and init event tracking
+    this.startedCombats.add(missionId);
+    this.eventLogs.set(missionId, []);
+    this.eventIdSets.set(missionId, new Set<string>());
+    
+    // Listen for combat updates & completion
     combatAI.onUpdate((state: RealCombatState) => {
       const combatData = this.activeCombats.get(missionId);
+
+      // Track incremental events for detailed reports
+      if (state?.events && state.events.length) {
+        const set = this.eventIdSets.get(missionId)!;
+        const log = this.eventLogs.get(missionId)!;
+        const recent = state.events.slice(-25);
+        recent.forEach((evt) => {
+          if (!set.has(evt.id)) {
+            set.add(evt.id);
+            log.push(evt);
+          }
+        });
+        // keep log bounded
+        if (log.length > 500) {
+          log.splice(0, log.length - 500);
+        }
+      }
+
       if (combatData && state.victory !== null) {
         // Combat has ended
         const actualDuration = (Date.now() - state.startTime) / 1000;
@@ -64,21 +90,23 @@ export class CombatSynchronizer {
           finalHealths[c.id] = c.health;
         });
 
-        // Store final results
+        // Store final results with events
         this.finalResults.set(missionId, {
           victory: state.victory!,
           actualDuration,
-          finalHealths
+          finalHealths,
+          events: [...(this.eventLogs.get(missionId) || [])]
         });
         
         // Notify all listeners
         const callbacks = this.missionCompletionCallbacks.get(missionId) || [];
         callbacks.forEach(callback => callback(state.victory, actualDuration));
         
-        // Clean up
+        // Clean up active maps but retain results
         this.activeCombats.delete(missionId);
         this.missionCompletionCallbacks.delete(missionId);
         this.completedCombats.add(missionId);
+        this.eventIdSets.delete(missionId);
         
         console.log(`Combat for mission ${missionId} completed: ${state.victory ? 'Victory' : 'Defeat'} after ${actualDuration}s`);
       }
@@ -169,7 +197,31 @@ export class CombatSynchronizer {
    * Get final combat results if available
    */
   getCombatResults(missionId: string): { victory: boolean; actualDuration: number; finalHealths: Record<string, number> } | null {
-    return this.finalResults.get(missionId) || null;
+    const r = this.finalResults.get(missionId) || null;
+    return r ? { victory: r.victory, actualDuration: r.actualDuration, finalHealths: r.finalHealths } : null;
+  }
+
+  /**
+   * Has combat started for mission
+   */
+  hasCombatStarted(missionId: string): boolean {
+    return this.startedCombats.has(missionId) || !!this.activeCombats.get(missionId);
+  }
+
+  /**
+   * Is combat completed for mission
+   */
+  isCombatComplete(missionId: string): boolean {
+    return this.completedCombats.has(missionId) || !!this.finalResults.get(missionId);
+  }
+
+  /**
+   * Detailed report including events (for terminal)
+   */
+  getCombatReport(missionId: string): { victory: boolean; actualDuration: number; finalHealths: Record<string, number>; events: RealCombatEvent[] } | null {
+    const r = this.finalResults.get(missionId);
+    if (!r) return null;
+    return { victory: r.victory, actualDuration: r.actualDuration, finalHealths: r.finalHealths, events: r.events || [] };
   }
 
   /**

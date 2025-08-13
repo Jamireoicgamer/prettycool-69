@@ -53,26 +53,32 @@ export const RealTimeCombatStatus: React.FC = () => {
   const setupMinutes = missionDurationMinutes * setupPhaseFraction;
   const combatStartMinuteThreshold = travelMinutes + setupMinutes;
 
-  // Phase progression based on actual time and combat state
+  // Phase progression based on synchronizer (one-directional)
   useEffect(() => {
     if (!activeMission) {
-      // Reset to default when no mission is active
       setMissionPhase('travel');
       setCombatComplete(false);
       setActualCombatDuration(null);
       return;
     }
 
-    if (elapsedMinutes < travelMinutes) {
-      setMissionPhase('travel');
-    } else if (elapsedMinutes < combatStartMinuteThreshold) {
-      setMissionPhase('setup');
-    } else if (isCombatActive && !combatComplete) {
-      setMissionPhase('combat');
-    } else {
+    const started = combatSynchronizer.hasCombatStarted(activeMission.id);
+    const completed = combatSynchronizer.isCombatComplete(activeMission.id);
+    if (completed) {
+      // Lock to return phase once complete
+      setCombatComplete(true);
       setMissionPhase('return');
+      return;
     }
-  }, [activeMission?.id, elapsedMinutes, isCombatActive, combatComplete]);
+    if (started && isCombatActive) {
+      setMissionPhase('combat');
+      return;
+    }
+    // Not started yet: use time thresholds
+    if (elapsedMinutes < travelMinutes) setMissionPhase('travel');
+    else if (elapsedMinutes < combatStartMinuteThreshold) setMissionPhase('setup');
+    else setMissionPhase('combat');
+  }, [activeMission?.id, elapsedMinutes, isCombatActive]);
 
   // Initialize listeners and event streaming (do not auto-start combat here)
   useEffect(() => {
